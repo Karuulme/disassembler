@@ -1,5 +1,0 @@
-﻿  ConsoleApplication1.cpp
-C:\Users\karuulme\Documents\disassembly\testler\ConsoleApplication1\ConsoleApplication1.cpp(7,39): warning C4838: conversion from 'int' to 'BYTE' requires a narrowing conversion
-C:\Users\karuulme\Documents\disassembly\testler\ConsoleApplication1\ConsoleApplication1.cpp(7,39): warning C4305: 'initializing': truncation from 'int' to 'BYTE'
-C:\Users\karuulme\Documents\disassembly\testler\ConsoleApplication1\ConsoleApplication1.cpp(7,39): warning C4309: 'initializing': truncation of constant value
-  ConsoleApplication1.vcxproj -> C:\Users\karuulme\Documents\disassembly\testler\ConsoleApplication1\x64\Debug\ConsoleApplication1.exe
