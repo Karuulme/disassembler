@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>Data/intelx86.json</file>
+    </qresource>
+    <qresource prefix="/files"/>
+</RCC>
