@@ -4,7 +4,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QFile>
-#include <Header/define.h>
+#include <Header/modrmbyte.h>
 
 class BringInstructions
 {

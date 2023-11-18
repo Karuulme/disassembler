@@ -23,6 +23,12 @@
 #define MODMODBITS  0B11000000
 #define MODRBITS    0B00111000
 #define MODRMBITS   0B00000111
+/*
+ * Sib Byte
+*/
+#define SIBSCALE  0B11000000
+#define SIBINDEX  0B00111000
+#define SIBBASE  0B00000111
 
 /*
  * x86x64  register and operands
@@ -216,7 +222,6 @@
 #define SIB         "SIB"
 #define NONE        "NONE"
 #define EBPMOD      "EBPMOD"
-#define BRACKET(v)  (snprintf(v, 10,"[%s]", v+1))
 #define OS          32
 #define OPERANDSSIZE 20
 
@@ -249,7 +254,7 @@ struct Instructions{
 };*/
 
 struct TextSection{
-    BYTE *  TextDataAddress;
+    BYTE  * TextDataAddress;
     DWORD   TextDataSize;
     DWORD   BytesReadSize=0;
 };

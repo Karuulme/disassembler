@@ -1,11 +1,11 @@
 
 #include "../Header/Resolvent.h"
 
-Resolvent::Resolvent()
+Resolvent::Resolvent() : textSection(), modRMAndSibByte(&textSection)
 {
+    textSection.TextDataAddress=bytes;
     DetermineInstructions();
 }
-
 void Resolvent::getTextData(TextSection textSection){
     textSection=textSection;
 }
@@ -42,6 +42,9 @@ void  Resolvent::DetermineInstructions(){
         }
     //}
 }
+/*
+ * BİRDEN FAZLA ÖN EK OLABİLİYOR, BURASI TEKRARDAN DÜZENLENECEK O YÜZDEN
+*/
 __int8 Resolvent::Prefix(InstructionPrefixes * instructionPrefixes,BYTE prefix){
     switch(prefix){
     case 0x26:
@@ -131,18 +134,18 @@ bool Resolvent::FindInstruction(InstructionPrefixes * instructionPrefixes){
             if( matchingInstructionIn["Prefix0F"].toString().toUInt(&ok,16)== instructionPrefixes->Prefix0F &&
                 matchingInstructionIn["PrimaryOpcode"].toString().toUInt(&ok,16)== instructionPrefixes->PrimaryOpcode &&
                 matchingInstructionIn["SecondaryOpcode"].toString().toUInt(&ok,16)==instructionPrefixes->SecondaryOpcode &&
-                matchingInstructionIn["RegisterOpcodeFiled"].toString().toInt()==CalculationDigit(&instructionPrefixes->RegisterOpcodeFiled)){
+                matchingInstructionIn["RegisterOpcodeFiled"].toString().toInt()==(instructionPrefixes->RegisterOpcodeFiled & MODRBITS)>>3){
                 matchingInstructions2.append(matchingInstructionIn);
                 break;
             }
         }
+        if(matchingInstructions2.size()>1){
 /************************************************************************************************************************************************
  * DİKKAT! / UYARI!
- * Aynı PrimaryOpcode, SecondaryOpcode ve Digit değerine sahip olan birden fazla tlaimatlar DB-DF Arasındadır.
+ * Aynı PrimaryOpcode, SecondaryOpcode ve Digit değerine sahip olan birden fazla tlaimatlar DB-DF Arasındadır(Prefix0F'de bulunmaz).
  * Bu talimatlarda modrm değeri C0'a eşit ve büyük ise sadece ST operantına sahip talimatı alınır. Diğer durumda m64int,m94/108 veya m64real gibi talimatlar ele alınır.
- * 0. indexdeki talimat m64int,m94/108 veya m64real içerir, 1. indexdeki talimat sadece STX,STX,STX.... değerlerini içerir.
+ * 0. indexdeki talimat m64int,m94/108 veya m64real içerir, 1. indexdeki talimat sadece STi,ST1,ST2.... değerlerini içerir.
  ************************************************************************************************************************************************/
-        if(matchingInstructions2.size()>1){
             matchingInstruction=matchingInstructions2.at(instructionPrefixes->RegisterOpcodeFiled>=0xC0 ? 1:0);
         }
         else{
@@ -151,46 +154,43 @@ bool Resolvent::FindInstruction(InstructionPrefixes * instructionPrefixes){
     }
     else{
         matchingInstruction=matchingInstructions.at(0);
+        if(matchingInstruction["RegisterOpcodeFiled"].toString()!=nullptr){
+            textSection.BytesReadSize++;
+            byte=ReadOneByte();
+            instructionPrefixes->RegisterOpcodeFiled=byte;
+        }
     }
-    QString mNemonic=matchingInstruction["InstructionMnemonic"].toString();
-    QString operand1=matchingInstruction["Operand1"].toString();
-    QString operand2=matchingInstruction["Operand2"].toString();
-    QString operand3=matchingInstruction["Operand3"].toString();
-    QString operand4=matchingInstruction["Operand4"].toString();
-    if(mNemonic==nullptr){
+    const char *mNemonic = matchingInstruction["InstructionMnemonic"].toString().toLatin1();
+    const char *operand1 = matchingInstruction["Operand1"].toString().toLatin1();
+    const char *operand2 = matchingInstruction["Operand2"].toString().toLatin1();
+    const char *operand3 = matchingInstruction["Operand3"].toString().toLatin1();
+    const char *operand4 = matchingInstruction["Operand4"].toString().toLatin1();
+    if(QString::fromUtf8(mNemonic)==nullptr){
         return false;
     }
-
-    memcpy_s(instructionPrefixes->InstructionMnemonic,OPERANDSSIZE,&mNemonic,sizeof(mNemonic));
-    memcpy_s(instructionPrefixes->Operand1,OPERANDSSIZE,&operand1,sizeof(operand1));
-    memcpy_s(instructionPrefixes->Operand2,OPERANDSSIZE,&operand2,sizeof(operand2));
-    memcpy_s(instructionPrefixes->Operand3,OPERANDSSIZE,&operand3,sizeof(operand3));
-    memcpy_s(instructionPrefixes->Operand4,OPERANDSSIZE,&operand4,sizeof(operand4));
+    memcpy_s(instructionPrefixes->InstructionMnemonic,OPERANDSSIZE,mNemonic,sizeof(mNemonic));
+    memcpy_s(instructionPrefixes->Operand1,OPERANDSSIZE,operand1,sizeof(operand1));
+    memcpy_s(instructionPrefixes->Operand2,OPERANDSSIZE,operand2,sizeof(operand2));
+    memcpy_s(instructionPrefixes->Operand3,OPERANDSSIZE,operand3,sizeof(operand3));
+    memcpy_s(instructionPrefixes->Operand4,OPERANDSSIZE,operand4,sizeof(operand4));
     matchingInstructions.clear();
     matchingInstructions2.clear();
     return true;
 }
-__int8 Resolvent::CalculationDigit(BYTE* byte){
-    return (*byte & MODRBITS)>>3;
-}
-__int8 Resolvent::CalculationRMDigit(BYTE* byte){
-    return *byte & MODRMBITS;
-}
-__int8 Resolvent::CalculationMODDigit(BYTE* byte){
-    return (*byte & MODMODBITS)>>6;
-}
 void Resolvent::WriteOperands(InstructionPrefixes * PinstructionPrefixes){
-    __int8 index = CalculationDigit(&PinstructionPrefixes->RegisterOpcodeFiled);
-#if OS==64
-    index+ = CalculationRexPrefixR(instructionPrefixes->PrefixRex);
-#endif
     for (char* op = PinstructionPrefixes->Operand1; op < PinstructionPrefixes->Operand1+sizeof(PinstructionPrefixes->Operand1)*4; op += sizeof(PinstructionPrefixes->Operand1)) {
-#if OS==32
-        WriteOperandType1(op,index);
-#elif OS==64
-        ModRMx64R(op,index);
-#endif
+       WriteOperandType1(op,PinstructionPrefixes->RegisterOpcodeFiled);
     }
+    qDebug()<<(int)PinstructionPrefixes->Prefix;
+    qDebug()<<(int)PinstructionPrefixes->Prefix0F;
+    qDebug()<<(int)PinstructionPrefixes->PrimaryOpcode;
+    qDebug()<<(int)PinstructionPrefixes->SecondaryOpcode;
+    qDebug()<<(int)PinstructionPrefixes->RegisterOpcodeFiled;
+    qDebug()<<QString::fromUtf8(PinstructionPrefixes->InstructionMnemonic);
+    qDebug()<<QString::fromUtf8(PinstructionPrefixes->Operand1);
+    qDebug()<<QString::fromUtf8(PinstructionPrefixes->Operand2);
+    qDebug()<<QString::fromUtf8(PinstructionPrefixes->Operand3);
+    qDebug()<<QString::fromUtf8(PinstructionPrefixes->Operand4);
 }
 void Resolvent::ReadAndPlaceValues(InstructionPrefixes *  pinstructionPrefixes){
     for (char* op = pinstructionPrefixes->Operand1; op < pinstructionPrefixes->Operand1+sizeof(pinstructionPrefixes->Operand1)*4; op += sizeof(pinstructionPrefixes->Operand1)) {
@@ -216,30 +216,12 @@ void Resolvent::ReadAndPlaceValues(InstructionPrefixes *  pinstructionPrefixes){
     }
 }
 #if OS==32
-void Resolvent::WriteOperandType1(char * op,__int8 index){
-    if(strcmp(op,R8)==0){
-        //memcpy_s(op,OPERANDSSIZE,tableModRMx32.r8[index],sizeof(tableModRMx32.r8[index]));
-    }
-    else if(strcmp(op,R16)==0){
-       // memcpy_s(op,OPERANDSSIZE,tableModRMx32.r16[index],sizeof(tableModRMx32.r8[index]));
-    }
-    else if(strcmp(op,R32)==0 || strcmp(op,R1632)==0){
-       // memcpy_s(op,OPERANDSSIZE,tableModRMx32.r32[index],sizeof(tableModRMx32.r8[index]));
-    }
-    else if(strcmp(op,RM8)==0){
+void Resolvent::WriteOperandType1(char * op,__int8 RegisterOpcodeFiled){
 
-    }
-    else if(strcmp(op,RM16)==0){
-
-    }
-    else if(strcmp(op,RM32)==0){
-
-    }
-    else if(strcmp(op,RM64)==0){
-
-    }
+    modRMAndSibByte.CalculationR(op,RegisterOpcodeFiled);
+    modRMAndSibByte.CalculationEffectiveAddress(op,RegisterOpcodeFiled);
     // OPERANDLARI GİZLENECEK KOMUTLAR
-    else if(strcmp(op,M8)==0){
+    if(strcmp(op,M8)==0){
         memset(op,0,OPERANDSSIZE);
     }
     else if(strcmp(op,M16)==0){
@@ -267,7 +249,7 @@ void Resolvent::WriteOperandType2(char * op,BYTE * registerOpcodeModRM,BYTE * re
         //R/M okuması gerçekleştirecek
     }
     else if(strcmp(op,STI)==0){
-        if(((int)(unsigned char)*registerOpcodeModRM)>=0xC0){
+       /*if(((int)(unsigned char)*registerOpcodeModRM)>=0xC0){
             __int16 stDigit=CalculationRMDigit(registerOpcodeModRM);
             char stOperand[6]="ST( )";//3. index boş,Digit oraya  yazılacak
             stDigit += 0x30;
@@ -277,10 +259,10 @@ void Resolvent::WriteOperandType2(char * op,BYTE * registerOpcodeModRM,BYTE * re
         else{
             //effective address ALANINA BAKILACAK
             CHAR  operand[OPERANDSSIZE];
-            CalculationRMDigit(registerOpcodeModRM);
+           // CalculationRMDigit(registerOpcodeModRM);
            // const char * effectiveAddress = tableModRMEffectiveAddressModx32.EffectiveAddress[CalculationRMDigit(registerOpcodeModRM)];
             //memcpy_s(operand,OPERANDSSIZE,effectiveAddress,sizeof(effectiveAddress));
-            __int8 modDigit = CalculationMODDigit(registerOpcodeModRM);
+            //__int8 modDigit = CalculationMODDigit(registerOpcodeModRM);
             if(true){//effectiveAddress==SIB){
 
             }
@@ -298,7 +280,7 @@ void Resolvent::WriteOperandType2(char * op,BYTE * registerOpcodeModRM,BYTE * re
             }
             BRACKET(operand);
             memcpy_s(op,OPERANDSSIZE,operand,OPERANDSSIZE);
-        }
+        }*/
     }
     else if(strcmp(op,ST1)==0){
         memcpy_s(op,OPERANDSSIZE,"ST(1)",6);
