@@ -169,34 +169,44 @@ bool Resolvent::FindInstruction(InstructionPrefixes * instructionPrefixes){
         return false;
     }
     memcpy_s(instructionPrefixes->InstructionMnemonic,OPERANDSSIZE,mNemonic,sizeof(mNemonic));
-    memcpy_s(instructionPrefixes->Operand1,OPERANDSSIZE,operand1,sizeof(operand1));
-    memcpy_s(instructionPrefixes->Operand2,OPERANDSSIZE,operand2,sizeof(operand2));
-    memcpy_s(instructionPrefixes->Operand3,OPERANDSSIZE,operand3,sizeof(operand3));
-    memcpy_s(instructionPrefixes->Operand4,OPERANDSSIZE,operand4,sizeof(operand4));
+    memcpy_s(instructionPrefixes->Operand1.Operand,OPERANDSSIZE,operand1,sizeof(operand1));
+    memcpy_s(instructionPrefixes->Operand2.Operand,OPERANDSSIZE,operand2,sizeof(operand2));
+    memcpy_s(instructionPrefixes->Operand3.Operand,OPERANDSSIZE,operand3,sizeof(operand3));
+    memcpy_s(instructionPrefixes->Operand4.Operand,OPERANDSSIZE,operand4,sizeof(operand4));
     matchingInstructions.clear();
     matchingInstructions2.clear();
     return true;
 }
-void Resolvent::WriteOperands(InstructionPrefixes * PinstructionPrefixes){
-    for (char* op = PinstructionPrefixes->Operand1; op < PinstructionPrefixes->Operand1+sizeof(PinstructionPrefixes->Operand1)*4; op += sizeof(PinstructionPrefixes->Operand1)) {
-       WriteOperandType1(op,PinstructionPrefixes->RegisterOpcodeFiled);
+void Resolvent::WriteOperands(InstructionPrefixes * instructionPrefixes){
+    for (Operands* op = &instructionPrefixes->Operand1; op < &instructionPrefixes->Operand1+ 4; op++) {
+       WriteOperandType1(op,instructionPrefixes->RegisterOpcodeFiled);
     }
-    qDebug()<<(int)PinstructionPrefixes->Prefix;
-    qDebug()<<(int)PinstructionPrefixes->Prefix0F;
-    qDebug()<<(int)PinstructionPrefixes->PrimaryOpcode;
-    qDebug()<<(int)PinstructionPrefixes->SecondaryOpcode;
-    qDebug()<<(int)PinstructionPrefixes->RegisterOpcodeFiled;
-    qDebug()<<QString::fromUtf8(PinstructionPrefixes->InstructionMnemonic);
-    qDebug()<<QString::fromUtf8(PinstructionPrefixes->Operand1);
-    qDebug()<<QString::fromUtf8(PinstructionPrefixes->Operand2);
-    qDebug()<<QString::fromUtf8(PinstructionPrefixes->Operand3);
-    qDebug()<<QString::fromUtf8(PinstructionPrefixes->Operand4);
+    qDebug()<<(int)instructionPrefixes->Prefix;
+    qDebug()<<(int)instructionPrefixes->Prefix0F;
+    qDebug()<<(int)instructionPrefixes->PrimaryOpcode;
+    qDebug()<<(int)instructionPrefixes->SecondaryOpcode;
+    qDebug()<<(int)instructionPrefixes->RegisterOpcodeFiled;
+    qDebug()<<QString::fromUtf8(instructionPrefixes->InstructionMnemonic);
+    qDebug()<<"-------------------------------------------------";
+    qDebug()<<QString::fromUtf8(instructionPrefixes->Operand1.Operand);
+    qDebug()<<QString::fromUtf8(instructionPrefixes->Operand1.RegisterModRM);
+    qDebug()<<QString::fromUtf8(instructionPrefixes->Operand1.RegisterSibBase);
+    qDebug()<<QString::fromUtf8(instructionPrefixes->Operand1.RegisterSibScalerIndex);
+    qDebug()<<instructionPrefixes->Operand1.Disp;
+    qDebug()<<"-------------------------------------------------";
+    qDebug()<<QString::fromUtf8(instructionPrefixes->Operand2.Operand);
+    qDebug()<<QString::fromUtf8(instructionPrefixes->Operand2.RegisterModRM);
+    qDebug()<<QString::fromUtf8(instructionPrefixes->Operand2.RegisterSibBase);
+    qDebug()<<QString::fromUtf8(instructionPrefixes->Operand2.RegisterSibScalerIndex);
+    qDebug()<<instructionPrefixes->Operand2.Disp;
+
+
 }
 void Resolvent::ReadAndPlaceValues(InstructionPrefixes *  pinstructionPrefixes){
-    for (char* op = pinstructionPrefixes->Operand1; op < pinstructionPrefixes->Operand1+sizeof(pinstructionPrefixes->Operand1)*4; op += sizeof(pinstructionPrefixes->Operand1)) {
-        /*
-         * BURADAKİ OKUMALARDA, TERSTEN YAZDIRMA VE İŞARETLİ SAYILARA DİKKAT EDİLECEK!
-        */
+    /*for (char* op = pinstructionPrefixes->Operand1.Operand; op < pinstructionPrefixes->Operand1+sizeof(pinstructionPrefixes->Operand1)*4; op += sizeof(pinstructionPrefixes->Operand1)) {
+
+        // BURADAKİ OKUMALARDA, TERSTEN YAZDIRMA VE İŞARETLİ SAYILARA DİKKAT EDİLECEK!
+
         if(strcmp(op,IMM8)==0){
             //op= 1 Byte okuma
             //ReadByte(1);
@@ -213,30 +223,30 @@ void Resolvent::ReadAndPlaceValues(InstructionPrefixes *  pinstructionPrefixes){
             //op= 8 Byte okuma
             //ReadByte(8);
         }
-    }
+    }*/
 }
 #if OS==32
-void Resolvent::WriteOperandType1(char * op,__int8 RegisterOpcodeFiled){
+void Resolvent::WriteOperandType1(Operands * operands,__int8 RegisterOpcodeFiled){
 
-    modRMAndSibByte.CalculationR(op,RegisterOpcodeFiled);
-    modRMAndSibByte.CalculationEffectiveAddress(op,RegisterOpcodeFiled);
+    modRMAndSibByte.CalculationR(operands,RegisterOpcodeFiled);
+    modRMAndSibByte.CalculationEffectiveAddress(operands,RegisterOpcodeFiled);
     // OPERANDLARI GİZLENECEK KOMUTLAR
-    if(strcmp(op,M8)==0){
-        memset(op,0,OPERANDSSIZE);
+    if(strcmp(operands->Operand,M8)==0){
+        memset(operands->Operand,0,OPERANDSSIZE);
     }
-    else if(strcmp(op,M16)==0){
-        memset(op,0,OPERANDSSIZE);
+    else if(strcmp(operands->Operand,M16)==0){
+        memset(operands->Operand,0,OPERANDSSIZE);
     }
-    else if(strcmp(op,M32)==0){
-        memset(op,0,OPERANDSSIZE);
+    else if(strcmp(operands->Operand,M32)==0){
+        memset(operands->Operand,0,OPERANDSSIZE);
     }
-    else if(strcmp(op,M64)==0){
-        memset(op,0,OPERANDSSIZE);
+    else if(strcmp(operands->Operand,M64)==0){
+        memset(operands->Operand,0,OPERANDSSIZE);
     }
-    else if(strcmp(op,M1632)==0){
-        memset(op,0,OPERANDSSIZE);
+    else if(strcmp(operands->Operand,M1632)==0){
+        memset(operands->Operand,0,OPERANDSSIZE);
     }
-    else if(strcmp(op,M16321632)==0){
+    else if(strcmp(operands->Operand,M16321632)==0){
         // BURASI AYRIYETTEN İNCELENECEK // BOUND' un alanı
     }
 }

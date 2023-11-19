@@ -16,7 +16,7 @@ class Resolvent:public QObject
 public:
     Resolvent();
     //BYTE bytes[10] = { 0x11,0x90,0xD4,0x99,0x96,0x22};
-    BYTE bytes[10] = { 0x11,0x83,0xF3,0x76,0x00,0x00,0x00};
+    BYTE bytes[10] = { 0x11,0xB5,0xFE,0x9A,0x00,0x00};
     TextSection textSection;
     BringInstructions bringInstructions;
     ModRMAndSibByte modRMAndSibByte;
@@ -32,7 +32,7 @@ public:
     __int8  Prefix0F(InstructionPrefixes * instructionPrefixes,BYTE prefix0f);
     bool    FindInstruction(InstructionPrefixes * instructionPrefixes);
     #if OS==32
-        void    WriteOperandType1(char * op,__int8 RegisterOpcodeFiled);
+        void    WriteOperandType1(Operands *operands,__int8 RegisterOpcodeFiled);
         void    WriteOperandType2(char * op,BYTE * registerOpcodeModRM,BYTE * registerOpcodeSIB);
     #elif OS==64
         void    ModRMx64R(char * op,__int8 index);

@@ -224,6 +224,18 @@
 #define EBPMOD      "EBPMOD"
 #define OS          32
 #define OPERANDSSIZE 20
+#define REGISTERSIZE 5
+struct Operands{
+    char Operand[OPERANDSSIZE];
+    char FrontLabel [OPERANDSSIZE];
+    char RegisterModRM[REGISTERSIZE];
+    char RegisterSibBase[REGISTERSIZE];
+    char RegisterSibScalerIndex[REGISTERSIZE];
+    char RegisterST[REGISTERSIZE];
+    __int8 Pow=0;
+    long long int Disp;
+    bool Bracket=false;
+};
 
 struct InstructionPrefixes{
     unsigned __int8 Prefix;
@@ -234,10 +246,10 @@ struct InstructionPrefixes{
     unsigned __int8 RegisterOpcodeModRM;
     unsigned __int8 RegisterOpcodeSIB;
     char InstructionMnemonic[OPERANDSSIZE];
-    char Operand1[OPERANDSSIZE];
-    char Operand2[OPERANDSSIZE];
-    char Operand3[OPERANDSSIZE];
-    char Operand4[OPERANDSSIZE];
+    Operands Operand1;
+    Operands Operand2;
+    Operands Operand3;
+    Operands Operand4;
 };
 /*
 struct Instructions{

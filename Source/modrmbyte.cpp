@@ -11,7 +11,7 @@ __int8 ModRMAndSibByte::CalculationRMDigit(BYTE* byte){
 __int8 ModRMAndSibByte::CalculationMODDigit(BYTE* byte){
     return (*byte & MODMODBITS)>>6;
 }
-__int8  ModRMAndSibByte::CalculationScale(BYTE* byte){
+__int8  ModRMAndSibByte::CalculationSS(BYTE* byte){
     return (*byte & SIBSCALE)>>6;
 }
 __int8  ModRMAndSibByte::CalculationIndex(BYTE* byte){
@@ -20,131 +20,101 @@ __int8  ModRMAndSibByte::CalculationIndex(BYTE* byte){
 __int8  ModRMAndSibByte::CalculationBase(BYTE* byte){
     return *byte & SIBBASE;
 }
-void ModRMAndSibByte::reverseString(char str[]) {
-    int start = 0;
-    int end = strlen(str) - 1;
-
-    while (start < end) {
-        char temp = str[start];
-        str[start] = str[end];
-        str[end] = temp;
-        start++;
-        end--;
-    }
-}
-void ModRMAndSibByte::CalculationR(char * op,BYTE RegisterOpcodeFiled){
+void ModRMAndSibByte::CalculationR(Operands * operands,BYTE RegisterOpcodeFiled){
     __int8 digit=CalculationDigit(&RegisterOpcodeFiled);
 
-    if(strcmp(op,R8)==0){
-        memcpy_s(op,OPERANDSSIZE,r8[digit],sizeof(r8[digit]));
+    if(strcmp(operands->Operand,R8)==0){
+        memcpy_s(operands->RegisterModRM,REGISTERSIZE,r8[digit],2);
     }
-    else if(strcmp(op,R16)==0){
-         memcpy_s(op,OPERANDSSIZE,r16[digit],sizeof(r16[digit]));
+    else if(strcmp(operands->Operand,R16)==0){
+         memcpy_s(operands->RegisterModRM,REGISTERSIZE,r16[digit], 2);
     }
-    else if(strcmp(op,R32)==0 || strcmp(op,R1632)==0){
-         memcpy_s(op,OPERANDSSIZE,r32[digit],sizeof(r32[digit]));
+    else if(strcmp(operands->Operand,R32)==0 || strcmp(operands->Operand,R1632)==0){
+         memcpy_s(operands->RegisterModRM,REGISTERSIZE,r32[digit],3);
     }
 }
-void ModRMAndSibByte::CalculationEffectiveAddress(char * op,BYTE registerOpcodeFiled){
-    if(strcmp(op,RM8)==0 || strcmp(op,RM16)==0 || strcmp(op,RM32)==0 || strcmp(op,RM64)==0 || strcmp(op,RM1632)==0){
+void ModRMAndSibByte::CalculationEffectiveAddress(Operands * operands,BYTE registerOpcodeFiled){
+    //https://www.tutorialspoint.com/assembly_programming/assembly_registers.htm BURASI OKUNACAK
+    if(strcmp(operands->Operand,RM8)==0 || strcmp(operands->Operand,RM16)==0 || strcmp(operands->Operand,RM32)==0 || strcmp(operands->Operand,RM64)==0 || strcmp(operands->Operand,RM1632)==0){
 
-        __int8 digit=CalculationDigit(&registerOpcodeFiled);
-        __int8 digitRM=CalculationRMDigit(&registerOpcodeFiled);
-        __int8 digitMod=CalculationMODDigit(&registerOpcodeFiled);
-        CHAR  operand[OPERANDSSIZE]={0};
-        memcpy_s(operand,OPERANDSSIZE,effectiveAddress[digitRM],sizeof(effectiveAddress[digitRM]));
-        /************************************************************
-         * ÖNCEMİ! /  UYARI!
-         * Disp4 değerleri int'e yazılır ve oradan hexe çevrilerek yazılır
-        *************************************************************/
-        if(strcmp(operand,SIB)==0){
-            memcpy_s(operand,OPERANDSSIZE,CalculationSib(op,registerOpcodeFiled),OPERANDSSIZE);
+         __int8 digitRM=CalculationRMDigit(&registerOpcodeFiled);
+        CHAR  effectiveAddressName[OPERANDSSIZE];
+        memcpy_s(effectiveAddressName,OPERANDSSIZE,effectiveAddress[digitRM],3);
+        int disp32={0};
+        __int8 force={0};
+        if(strcmp(effectiveAddressName,SIB)==0){
+            CalculationSib(operands,registerOpcodeFiled);
         }
         else{
-            if(digitMod<1){
+            __int8 digit=CalculationDigit(&registerOpcodeFiled);
+            __int8 digitMod=CalculationMODDigit(&registerOpcodeFiled);
+            switch(digitMod)
+            {
+            case 0:
                 if(digitRM==5){//disp32
-                    memcpy_s(operand,OPERANDSSIZE,textSection->TextDataAddress+textSection->BytesReadSize+1,4);
+                    memcpy_s(&operands->Disp,sizeof(long long int),(textSection->TextDataAddress+textSection->BytesReadSize+1),4);
                     textSection->BytesReadSize+=4;
-                    reverseString(operand);
                 }
-            }
-            else if(digitMod==1){
-                memcpy_s(operand,OPERANDSSIZE,effectiveAddress[digitRM],sizeof(effectiveAddress[digitRM]));
-                strcpy(operand,"+");
-                //memcpy_s(operand,OPERANDSSIZE,,1);
-                strncat(operand,(const char*)(textSection->TextDataAddress+textSection->BytesReadSize+1),1);
-                textSection->BytesReadSize++;
-            }
-            else if(digitMod==2){
-                memcpy_s(operand,OPERANDSSIZE,effectiveAddress[digitRM],sizeof(effectiveAddress[digitRM]));
-                int disp32={0};
-                memcpy_s(&disp32,4,(textSection->TextDataAddress+textSection->BytesReadSize+1),4);
-                QString hexvalue = QString("%1").arg(disp32, 8, 16, QLatin1Char( '0' ));//HEX'E ÇEVİRME İŞLEMİ
-                if(disp32>0){
-                    strcat(operand,"+");
+                else{
+                    memcpy_s(operands->RegisterModRM,OPERANDSSIZE,r32[digitMod],sizeof(r32[digitMod]));
                 }
-                sprintf(operand+5, "%X",disp32);
-                strcat(operand,hexvalue.toUpper().toUtf8().constData());
-                textSection->BytesReadSize+=4;
-            }
-            else{
-                memcpy_s(operand,OPERANDSSIZE,r32[digitRM],sizeof(r32[digitRM]));
+                break;
+            case 1:
+            case 2:
+                force=pow(2,digitMod);//2 or 4
+                memcpy_s(&operands->RegisterModRM,REGISTERSIZE,effectiveAddress[digitRM],3);
+                memcpy_s(&operands->Disp,sizeof(long long int),(textSection->TextDataAddress+textSection->BytesReadSize+1),force);
+                textSection->BytesReadSize+=force;
+                break;
+            case 3:
+                memcpy_s(operands->RegisterModRM,OPERANDSSIZE,r32[digitRM],sizeof(r32[digitRM]));
             }
         }
-        Bracket(operand);
-        memcpy_s(op,OPERANDSSIZE,operand,OPERANDSSIZE);
     }
 }
-char * ModRMAndSibByte::CalculationSib(char * op,BYTE registerOpcodeFiled){
-    CHAR  operand[OPERANDSSIZE]={0};
+void ModRMAndSibByte::CalculationSib(Operands * operands,BYTE registerOpcodeFiled){
     BYTE  sibByte[1];
     memcpy_s(sibByte,1,textSection->TextDataAddress+textSection->BytesReadSize+1,1);
     textSection->BytesReadSize++;
-    __int8 sibBaseIndex=CalculationBase(sibByte);
     __int8 sibIndex=CalculationIndex(sibByte);
-    const char * scaled=scaledIndex[sibIndex];
-    if(sibBaseIndex==0b00000101){//5
+    __int8 sibSS=CalculationSS(sibByte);
+    const char * scaled=base[sibIndex];
+    if(strcmp(scaled,EBPMOD)){
         __int8 modBits=CalculationMODDigit(&registerOpcodeFiled);
         switch(modBits){
         case 0x00:
-            int disp32={0};
-            if(strcmp(scaled,NONE)!=0){
-                strcat(operand,scaled);
-                __int8 sibSS=CalculationScale(sibByte);
-                if(sibSS>0){ //ÜSLÜYÜ HESAPLAR VE SICALED INDEX'IN YANINA KOYAR
-                    __int8 result = std::pow(2, sibSS);
-                    strcat(operand,"*");
-                    strcat(operand,(char*)(__int8)pow(2,sibSS));
-                }
-            }
-            memcpy_s(&disp32,4,(textSection->TextDataAddress+textSection->BytesReadSize+1),4);
+            memcpy_s(&operands->Disp,sizeof(long long int),(textSection->TextDataAddress+textSection->BytesReadSize+1),4);
             textSection->BytesReadSize+=4;
-            QString hexvalue = QString("%1").arg(disp32, 8, 16, QLatin1Char( '0' ));//HEX'E ÇEVİRME İŞLEMİ
-            if(disp32>0){
-                strcat(operand,"+");
-            }
-            strcat(operand,hexvalue.toUpper().toUtf8().constData());
             break;
         case 0x01:
-            operand
-            textSection->TextDataAddress+textSection->BytesReadSize+1
+            memcpy_s(&operands->RegisterSibBase,REGISTERSIZE,EBP,3);
+            memcpy_s(&operands->Disp,sizeof(long long int),(textSection->TextDataAddress+textSection->BytesReadSize+1),1);
+            textSection->BytesReadSize++;
             break;
         case 0x10:
+            memcpy_s(&operands->RegisterSibBase,REGISTERSIZE,EBP,3);
+            memcpy_s(&operands->Disp,sizeof(long long int),(textSection->TextDataAddress+textSection->BytesReadSize+1),4);
+            textSection->BytesReadSize+=4;
             break;
         }
     }
     else{
-
+        memcpy_s(&operands->RegisterSibBase,REGISTERSIZE,scaled,3);
     }
-    //qDebug()<<;
-
-
-    return operand;
+    const char * scaledSelected=scaledIndex[sibIndex];
+    if(strcmp(scaledSelected,NONE)!=0){
+        __int8 force={0};
+        force=pow(2,sibSS);//0 2, 4 or 8
+        if(force>1)
+            operands->Pow=force;
+        memcpy_s(&operands->RegisterSibScalerIndex,REGISTERSIZE,scaledIndex[sibIndex],sizeof(scaledIndex[sibIndex]));
+    }
 }
+/*
 void ModRMAndSibByte::Bracket(char operand[OPERANDSSIZE]){
     char  tags[OPERANDSSIZE]={0};
     strcat(tags,"[");
     strcat(tags,operand);
     strcat(tags,"]");
     memcpy_s(operand,OPERANDSSIZE,tags,OPERANDSSIZE);
-}
+}*/
